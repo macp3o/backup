@@ -5,6 +5,10 @@
 #   - Monthly forever archives
 # Backup size is minimized through hard-linking
 #
+# Backups /home
+
+# backup disk mount point
+mountpoint="/media/$(whoami)/hotsauce"
 
 # backup FROM to DEST mirroring MIRROR
 function backup() {
@@ -12,27 +16,30 @@ function backup() {
 	rsync -aHv --human-readable --stats --progress \
 		--link-dest="$mirror" \
 		--delete --delete-after --delete-excluded \
-		--exclude=lost+found/ --exclude=Trash/ --exclude=.mozilla/ --exclude=.cache/ \
+		--exclude=lost+found/ --exclude=Trash/ --exclude=.dbus/ --exclude=.cache/ \
+    --exclude=.mozilla/ \
 		--exclude=.gvfs/ --exclude=.macromedia/Flash_Player/ \
-		--exclude=.local/share/gvfs-metadata/ \
-		--exclude=/imports/ \
+		--exclude=.local/share/gvfs-metadata/ --exclude=/.~lock* \
 		"$src" "$dest"
 }
 
 # Wait for backup disk
-mountpoint='/media/backup'
-
 if ! mount | grep -q $mountpoint; then
 	echo 'Waiting for backup disk to be mounted'
-	until mount | grep -q $mountpoint; do sleep 1; done
+  while ! mount | grep -q $mountpoint; do
+  	sleep 1
+  done
 fi
+echo 'Preparing to backup'
 
 # Backup directories
-bkup="$mountpoint/`hostname`"
-today="$bkup-backup/`date '+%a, %b %d %Y'`"
-yesterday="$bkup-backup/`ls -t $bkup-backup/ | head -1 | sed 's/\/$//'`"
-week="$bkup-backup/week $(( `date +%_d` / 7 )) - `date '+%b %d %Y'`"
-month="$bkup-archive/`date '+%Y-%m - %b %d %Y'`"
+bkup="$mountpoint/$(hostname)"
+mkdir -p "$bkup-backup" "$bkup-archive"
+
+today="$bkup-backup/$(date '+%a, %b %d %Y')"
+yesterday="$bkup-backup/$(ls -t $bkup-backup/ | head -1 | sed 's/\/$//')"
+week="$bkup-backup/week $(( $(date +%_d) / 7 )) - $(date '+%b %d %Y')"
+month="$bkup-archive/$(date '+%Y-%m - %b %d %Y')"
 
 # Daily backup Monday... Sunday -- preserves last 7 days
 [ ! -d "$today" -a -d "${today:0:-13}"* ] && mv "${today:0:-13}"* "$today"
